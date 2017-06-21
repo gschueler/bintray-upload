@@ -33,6 +33,9 @@ NOT_FOUND=404
 SUCCESS=200
 CREATED=201
 PACKAGE_DESCRIPTOR=bintray-package.json
+DEB_DIST=${DEB_DIST:-stable}
+DEB_COMPONENT=${DEB_COMPONENT:-main}
+DEB_ARCH=${DEB_ARCH:-all}
 
 # Arguments
 # $1 SUBJECT aka. your BinTray username
@@ -52,8 +55,8 @@ function main() {
 
   DEB_FILE=`basename ${DEB}`
 
-  PCK_NAME=$(dpkg-deb -f ${DEB} Package)
-  PCK_VERSION=$(dpkg-deb -f ${DEB} Version)
+  PCK_NAME=${PCK_NAME:-$(dpkg-deb -f ${DEB} Package)}
+  PCK_VERSION=${PCK_VERSION:-$(dpkg-deb -f ${DEB} Version)}
 
   if [ -z "$PCK_NAME" ] || [ -z "$PCK_VERSION" ] || [ -z "$PCK_RELEASE" ]; then
    echo "no DEB metadata information in $DEB_FILE, aborting..."
@@ -70,7 +73,9 @@ function main() {
   echo "[DEBUG] PCK_RELEASE: ${PCK_RELEASE}"
   
   init_curl
-  if [ 0 != check_package_exists ] ; then
+  check_package_exists
+  local pkg_exists=$?
+  if [ 0 != $pkg_exists ] ; then
     echo "[DEBUG] The package ${PCK_NAME} does not exit. It will be created"
     create_package        
   fi
@@ -84,7 +89,8 @@ function init_curl() {
 
 function check_package_exists() {
   echo "[DEBUG] Checking if package ${PCK_NAME} exists..."
-  package_exists=`[  $(${CURL} --write-out %{http_code} --silent --output /dev/null -X GET  ${API}/packages/${ORG}/${REPO}/${PCK_NAME})  -eq ${SUCCESS} ]`
+  [  $(${CURL} --write-out %{http_code} --silent --output /dev/null -X GET  ${API}/packages/${ORG}/${REPO}/${PCK_NAME})  -eq ${SUCCESS} ]
+  package_exists=$?
   echo "[DEBUG] Package ${PCK_NAME} exists? y:1/N:0 ${package_exists}"   
   return ${package_exists} 
 }
@@ -108,9 +114,20 @@ function create_package() {
 
 function upload_content() {
   echo "[DEBUG] Uploading ${DEB_FILE}..."
-  [ $(${CURL} --write-out %{http_code} --silent --output /dev/null -T ${DEB} -H X-Bintray-Package:${PCK_NAME} -H X-Bintray-Version:${PCK_VERSION}-${PCK_RELEASE} ${API}/content/${ORG}/${REPO}/${DEB_FILE}) -eq ${CREATED} ]
+  local CURLRESULT=$(${CURL} \
+    --write-out %{http_code} \
+    --silent \
+    --output curl.out \
+    -T ${DEB} \
+    -H X-Bintray-Debian-Distribution:$DEB_DIST \
+    -H X-Bintray-Debian-Component:$DEB_COMPONENT \
+    -H X-Bintray-Debian-Architecture:$DEB_ARCH \
+    -H X-Bintray-Package:${PCK_NAME} \
+    -H X-Bintray-Version:${PCK_VERSION}-${PCK_RELEASE} \
+    ${API}/content/${ORG}/${REPO}/${DEB_FILE})
+  [ $CURLRESULT -eq ${CREATED} ]
   uploaded=$?
-  echo "[DEBUG] DEB ${DEB_FILE} uploaded? y:1/N:0 ${uploaded}"
+  echo "[DEBUG] DEB ${DEB_FILE} uploaded? y:0/N:1 ${uploaded} result $CURLRESULT"
   return ${uploaded}
 }
 function deploy_deb() {
