@@ -108,9 +108,17 @@ function create_package() {
 
 function upload_content() {
   echo "[DEBUG] Uploading ${JAR_FILE} to ${MAVEN_GROUP}${JAR_FILE}..."
-  [ $(${CURL} --write-out %{http_code} --silent --output /dev/null -T ${JAR} -H X-Bintray-Package:${PCK_NAME} -H X-Bintray-Version:${PCK_VERSION} ${API}/maven/${BINTRAY_ORG}/${REPO}/${PCK_NAME}/${MAVEN_GROUP}${JAR_FILE}) -eq ${CREATED} ]
+  local CURLRESULT=$(${CURL} --write-out %{http_code} \
+      --silent \
+      --output curl.out \
+      -T ${JAR} \
+      -H X-Bintray-Package:${PCK_NAME} \
+      -H X-Bintray-Version:${PCK_VERSION} \
+      ${API}/maven/${BINTRAY_ORG}/${REPO}/${PCK_NAME}/${MAVEN_GROUP}${JAR_FILE})
+  [ $CURLRESULT -eq ${CREATED} ]
   uploaded=$?
   echo "[DEBUG] JAR ${JAR_FILE} uploaded? y:1/N:0 ${uploaded}"
+  [ $uploaded == 0 ] || echo "failed to upload: " && cat curl.out
   return ${uploaded}
 }
 function deploy_rpm() {
