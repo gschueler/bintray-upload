@@ -38,7 +38,8 @@ PACKAGE_DESCRIPTOR=bintray-package.json
 # $2 API_KEY act as a password for REST authentication
 # $3 ORG bintray org may be different than username
 # $4 REPO the targeted repo
-# $5 the rpm to deploy on BinTray 
+# $5 the jar to deploy on BinTray 
+# $6 the maven group path for the artifact
 
 function main() {
   SUBJECT=$1
@@ -46,6 +47,7 @@ function main() {
   BINTRAY_ORG=$3
   REPO=$4
   JAR=$5
+  MAVEN_GROUP=${6:-}
   JAR_FILE=`basename ${JAR}`
 
   PCK_BASE=${JAR_FILE%\.[wj]ar}
@@ -62,6 +64,7 @@ function main() {
   echo "[DEBUG] REPO       : ${REPO}"
   echo "[DEBUG] JAR_PATH   : ${JAR}"
   echo "[DEBUG] JAR        : ${JAR_FILE}"
+  echo "[DEBUG] MAVEN_GROUP: ${MAVEN_GROUP}"
   echo "[DEBUG] PCK_NAME   : ${PCK_NAME}"
   echo "[DEBUG] PCK_VERSION: ${PCK_VERSION}"
   
@@ -104,8 +107,8 @@ function create_package() {
 }
 
 function upload_content() {
-  echo "[DEBUG] Uploading ${JAR_FILE}..."
-  [ $(${CURL} --write-out %{http_code} --silent --output /dev/null -T ${JAR} -H X-Bintray-Package:${PCK_NAME} -H X-Bintray-Version:${PCK_VERSION} ${API}/content/${BINTRAY_ORG}/${REPO}/${JAR_FILE}) -eq ${CREATED} ]
+  echo "[DEBUG] Uploading ${JAR_FILE} to ${MAVEN_GROUP}${JAR_FILE}..."
+  [ $(${CURL} --write-out %{http_code} --silent --output /dev/null -T ${JAR} -H X-Bintray-Package:${PCK_NAME} -H X-Bintray-Version:${PCK_VERSION} ${API}/maven/${BINTRAY_ORG}/${REPO}/${PCK_NAME}/${MAVEN_GROUP}${JAR_FILE}) -eq ${CREATED} ]
   uploaded=$?
   echo "[DEBUG] JAR ${JAR_FILE} uploaded? y:1/N:0 ${uploaded}"
   return ${uploaded}
